@@ -12,6 +12,20 @@ def _unbroadcast(grad, shape):
             grad=grad.sum(axis=i, keepdims=True)
     return grad
 
+_grad_enabled=True
+
+class no_grad:
+    """context manager: inside it, no computation graph is recorded (used for evaluation)"""
+
+    def __enter__(self):
+        global _grad_enabled
+        self._prev=_grad_enabled
+        _grad_enabled=False
+
+    def __exit__(self,*exc):
+        global _grad_enabled
+        _grad_enabled=self._prev
+        return False
 
 def _as_tensor(x):
     return x if isinstance(x, Tensor) else Tensor(x)
@@ -84,6 +98,9 @@ class Tensor:
             self.grad=self.grad + g
 
     def backward(self, grad=None):
+        if not self.requires_grad:
+            raise RuntimeError("backward() called on a tensorthat does not require grad")
+        
         if grad is None:
             if self.data.size != 1:
                 raise RuntimeError("backward() needs a scalar output, or pass `grad` explicitly")
@@ -101,7 +118,7 @@ class Tensor:
             visited.add(id(node))
             stack.append((node, True))
             for p in node._parents:
-                if id(p) not in visited:
+                if p.requires_grad and id(p) not in visited:
                     stack.append((p, False))
 
         # clear stale grads on intermediate nodes so calling backward twice is safe;
@@ -112,7 +129,8 @@ class Tensor:
         self.grad=np.array(grad)
 
         for t in reversed(topo):
-            t._backward()
+            if t.grad is not None:
+                t._backward()
 
     #elementwise arithmetic 
     def __add__(self, other):
