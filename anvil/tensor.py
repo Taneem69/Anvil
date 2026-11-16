@@ -5,7 +5,7 @@ import numpy as np
 
 def _unbroadcast(grad, shape):
     """Sum `grad` down to `shape`: the reverse of NumPy broadcasting."""
-    while grad.ndim > len(shape):
+    while grad.ndim>len(shape):
         grad=grad.sum(axis=0)
     for i, s in enumerate(shape):
         if s==1 and grad.shape[i] != 1:
@@ -41,7 +41,7 @@ def _result(data, parents):
 
 
 class Tensor:
-    __array_ufunc__=None  # make `numpy_array * Tensor` defer to Tensor's operators
+    __array_ufunc__=None  
 
     def __init__(self, data, requires_grad=False, _parents=()):
         if isinstance(data, Tensor):
@@ -50,15 +50,15 @@ class Tensor:
             arr=np.asarray(data)
             if not np.issubdtype(arr.dtype, np.floating):
                 arr=arr.astype(np.float32)
-        else:  # python numbers / lists default to float32, like PyTorch
+        else:  
             arr=np.asarray(data, dtype=np.float32)
         self.data=arr
         self.grad=None
         self.requires_grad=requires_grad
         self._parents=_parents
-        self._backward=lambda out: None  # takes the output tensor as an argument (no reference cycle)
+        self._backward=lambda out: None  
 
-    # ---------- basic properties ----------
+    #basic properties 
     @property
     def shape(self):
         return self.data.shape
@@ -91,12 +91,12 @@ class Tensor:
         flag=", requires_grad=True" if self.requires_grad else ""
         return f"Tensor({self.data}{flag})"
 
-    # ---------- autograd machinery ----------
+    #autograd machinery 
     def _accum(self, g):
         if not self.requires_grad:
             return
         if self.grad is None:
-            self.grad=np.array(g)  # copy, so we never alias another tensor's grad
+            self.grad=np.array(g)  
         else:
             self.grad=self.grad + g
 
@@ -120,7 +120,7 @@ class Tensor:
             visited.add(id(node))
             stack.append((node, True))
             for p in node._parents:
-                if p.requires_grad and id(p) not in visited:  # constants never need gradients
+                if p.requires_grad and id(p) not in visited:  
                     stack.append((p, False))
 
         # clear stale grads on intermediate nodes so calling backward twice is safe;
@@ -134,7 +134,7 @@ class Tensor:
             if t.grad is not None:
                 t._backward(t)
 
-    # ---------- elementwise arithmetic ----------
+    #elementwise arithmetic 
     def __add__(self, other):
         other=_as_tensor(other)
         out=_result(self.data + other.data, (self, other))
@@ -192,31 +192,33 @@ class Tensor:
     def __rtruediv__(self, other):
         return _as_tensor(other) * (self ** -1)
 
-    #elementwise math
+    #elementwise math 
     def exp(self):
         out=_result(np.exp(self.data), (self,))
+
         def _backward(out):
-            self._accum(out.grad*out.data)
-        
+            self._accum(out.grad * out.data)
+
         out._backward=_backward
         return out
 
     def log(self):
         out=_result(np.log(self.data), (self,))
+
         def _backward(out):
-            self._accum(out.grad/self.data)
+            self._accum(out.grad / self.data)
 
         out._backward=_backward
         return out
 
     def relu(self):
         out=_result(np.maximum(self.data, 0), (self,))
+
         def _backward(out):
-            self._accum(out.grad*(self.data>0))
+            self._accum(out.grad * (self.data > 0))
 
-        out._backwward=_backward
+        out._backward=_backward
         return out
-
 
     def tanh(self):
         out=_result(np.tanh(self.data), (self,))
@@ -236,7 +238,7 @@ class Tensor:
         out._backward=_backward
         return out
 
-    # ---------- reductions ----------
+    #reductions 
     def sum(self, axis=None, keepdims=False):
         out=_result(self.data.sum(axis=axis, keepdims=keepdims), (self,))
 
@@ -260,7 +262,7 @@ class Tensor:
         def _backward(out):
             m=self.data.max(axis=axis, keepdims=True)
             mask=(self.data==m).astype(self.data.dtype)
-            mask=mask / mask.sum(axis=axis, keepdims=True)  # split ties evenly
+            mask=mask / mask.sum(axis=axis, keepdims=True)  
             g=out.grad
             if axis is not None and not keepdims:
                 g=np.expand_dims(g, axis)
@@ -269,13 +271,11 @@ class Tensor:
         out._backward=_backward
         return out
 
-
-
-    #linear algebra
+    #linear algebra 
     def matmul(self, other):
-        """Matrix multiply for tensors with ndim>=2 (batch dims broadcast)"""
+        """Matrix multiply for tensors with ndim >= 2 (batch dims broadcast)."""
         other=_as_tensor(other)
-        assert self.ndim>=2 and other.ndim>=2, "matual needs ndim>=2(reshape vectors first)"
+        assert self.ndim >= 2 and other.ndim >= 2, "matmul needs ndim >= 2 (reshape vectors first)"
         out=_result(self.data @ other.data, (self, other))
 
         def _backward(out):
@@ -285,23 +285,18 @@ class Tensor:
             self._accum(_unbroadcast(ga, a.shape))
             other._accum(_unbroadcast(gb, b.shape))
 
-
         out._backward=_backward
         return out
 
-
     __matmul__=matmul
 
-
-
     def __rmatmul__(self, other):
-        return _As_tensor(other).matmul(self)
+        return _as_tensor(other).matmul(self)
 
-
-    #shape ops
+    #shape ops 
     def reshape(self, *shape):
         if len(shape)==1 and isinstance(shape[0], (tuple, list)):
-            shape =tuple(shape[0])
+            shape=tuple(shape[0])
         out=_result(self.data.reshape(shape), (self,))
 
         def _backward(out):
@@ -328,9 +323,8 @@ class Tensor:
 
         def _backward(out):
             g=np.zeros_like(self.data)
-            np.add.at(g, idx, out.grad)  # add.at handles repeated indices correctly
+            np.add.at(g, idx, out.grad)  
             self._accum(g)
 
         out._backward=_backward
         return out
-
