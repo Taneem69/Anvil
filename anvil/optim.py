@@ -3,7 +3,7 @@
 import numpy as np
 
 class Optimizer:
-    def __inti__(self, params):
+    def __init__(self, params):
         self.params=list(params)
 
     def zero_grad(self):

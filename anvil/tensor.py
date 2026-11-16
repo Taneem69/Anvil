@@ -14,15 +14,16 @@ def _unbroadcast(grad, shape):
 
 _grad_enabled=True
 
+
 class no_grad:
-    """context manager: inside it, no computation graph is recorded (used for evaluation)"""
+    """Context manager: inside it, no computation graph is recorded (use for evaluation)."""
 
     def __enter__(self):
         global _grad_enabled
         self._prev=_grad_enabled
         _grad_enabled=False
 
-    def __exit__(self,*exc):
+    def __exit__(self, *exc):
         global _grad_enabled
         _grad_enabled=self._prev
         return False
@@ -33,7 +34,7 @@ def _as_tensor(x):
 
 def _result(data, parents):
     """Build an op's output. Only record the graph if some input needs a gradient."""
-    needs_grad=any(p.requires_grad for p in parents)
+    needs_grad=_grad_enabled and any(p.requires_grad for p in parents)
     return Tensor(data, requires_grad=needs_grad, _parents=parents if needs_grad else ())
 
 
