@@ -13,7 +13,7 @@ from .tensor import Tensor
 
 
 
-class Dataloader:
+class DataLoader:
     """Interate over (x_batch Tensor, y_batch ndarray) pairs from in-memory arrays"""
 
 
