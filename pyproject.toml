@@ -7,3 +7,11 @@ dependencies = ["numpy"]
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+
+[tool.setuptools.packages.find]
+include=["anvil*"]
+
+
+[tool.pytest.ini_options]
+testpaths=["tests"]
